@@ -1,6 +1,7 @@
 package com.samsunghack.morrow
 
 import android.accessibilityservice.AccessibilityService
+import android.os.Build
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -52,6 +53,12 @@ class MorrowAccessibilityService : AccessibilityService() {
             else -> return
         }
 
+        val scrollForward = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            event.scrollDeltaY >= 0
+        } else {
+            true
+        }
+
         val action = RecordedAction(
             type = type,
             text = event.text?.joinToString("")?.takeIf { it.isNotBlank() },
@@ -64,7 +71,7 @@ class MorrowAccessibilityService : AccessibilityService() {
             boundsRight = bounds.right,
             boundsBottom = bounds.bottom,
             delayMs = delay,
-            scrollForward = event.scrollDeltaY >= 0
+            scrollForward = scrollForward
         )
 
         if (type == ActionType.TYPE_TEXT) {
@@ -77,6 +84,7 @@ class MorrowAccessibilityService : AccessibilityService() {
                 return
             }
         }
+
         recordedActions.add(action)
     }
 
