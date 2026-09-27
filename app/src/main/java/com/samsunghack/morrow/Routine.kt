@@ -20,7 +20,8 @@ data class RecordedAction(
     val boundsTop: Int? = null,
     val boundsRight: Int? = null,
     val boundsBottom: Int? = null,
-    val delayMs: Long = 0L
+    val delayMs: Long = 0L,
+    val scrollForward: Boolean = true
 )
 
 enum class ActionType { CLICK, TYPE_TEXT, SCROLL, FOCUS, WAIT }
