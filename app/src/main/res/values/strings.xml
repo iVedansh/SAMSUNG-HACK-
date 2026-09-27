@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Morrow</string>
+    <string name="accessibility_service_description">Morrow uses Android Accessibility Service to teach and replay generic UI actions. It does not capture passwords or OTP values.</string>
+</resources>
