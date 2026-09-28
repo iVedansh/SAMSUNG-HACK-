@@ -16,7 +16,16 @@ android {
     }
 
     buildFeatures { buildConfig = true }
-    kotlinOptions { jvmTarget = "17" }
+
+    // Keep Java and Kotlin compilation on the same JVM target.
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
 }
 
 dependencies {
