@@ -10,6 +10,8 @@ import java.util.concurrent.CopyOnWriteArrayList
 class MorrowAccessibilityService : AccessibilityService() {
     companion object {
         private const val MIN_DELAY_MS = 40L
+        private const val FIND_TIMEOUT_MS = 5000L
+        private const val FIND_INTERVAL_MS = 150L
 
         @Volatile var instance: MorrowAccessibilityService? = null
             private set
@@ -127,37 +129,56 @@ class MorrowAccessibilityService : AccessibilityService() {
             for ((index, action) in routine.actions.withIndex()) {
                 if (action.delayMs > 0) SystemClock.sleep(action.delayMs.coerceIn(40L, 5000L))
                 if (!perform(action)) {
-                    onFinished(false, "Stopped at step ${index + 1}/${routine.actions.size}: target not found or action failed.")
+                    onFinished(false, "Stopped at step " + (index + 1) + "/" + routine.actions.size + ": target not found or action failed.")
                     return@Thread
                 }
             }
-            onFinished(true, "Completed ${routine.actions.size} steps.")
+            onFinished(true, "Completed " + routine.actions.size + " steps.")
         }.start()
     }
 
     private fun perform(action: RecordedAction): Boolean {
-        val root = rootInActiveWindow ?: return false
-        if (action.packageName != null && root.packageName?.toString() != action.packageName) return false
+        val deadline = SystemClock.uptimeMillis() + FIND_TIMEOUT_MS
 
-        val node = findTarget(root, action) ?: return false
-        return when (action.type) {
-            ActionType.CLICK -> node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-            ActionType.TYPE_TEXT -> {
-                if (isSensitive(node)) return false
-                val args = android.os.Bundle().apply {
-                    putCharSequence(
-                        AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
-                        action.text ?: ""
-                    )
+        while (SystemClock.uptimeMillis() < deadline) {
+            val root = rootInActiveWindow
+            if (root != null) {
+                val currentPackage = root.packageName?.toString()
+
+                if (action.packageName == null || currentPackage == action.packageName) {
+                    val node = findTarget(root, action)
+                    if (node != null) {
+                        return when (action.type) {
+                            ActionType.CLICK -> node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                            ActionType.TYPE_TEXT -> {
+                                if (isSensitive(node)) false
+                                else {
+                                    val args = android.os.Bundle().apply {
+                                        putCharSequence(
+                                            AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                                            action.text ?: ""
+                                        )
+                                    }
+                                    node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+                                }
+                            }
+                            ActionType.SCROLL -> node.performAction(
+                                if (action.scrollForward) AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
+                                else AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
+                            )
+                            else -> true
+                        }
+                    }
+                } else if (action.type == ActionType.CLICK) {
+                    performGlobalAction(GLOBAL_ACTION_HOME)
+                    SystemClock.sleep(250L)
                 }
-                node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
             }
-            ActionType.SCROLL -> node.performAction(
-                if (action.scrollForward) AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
-                else AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
-            )
-            else -> true
+
+            SystemClock.sleep(FIND_INTERVAL_MS)
         }
+
+        return false
     }
 
     private fun findTarget(root: AccessibilityNodeInfo, action: RecordedAction): AccessibilityNodeInfo? {
